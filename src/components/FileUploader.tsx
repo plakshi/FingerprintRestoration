@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Upload, FileImage, X, AlertCircle } from 'lucide-react';
+import { Upload, FileImage, X, AlertCircle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FileUploaderProps {
@@ -7,19 +7,22 @@ interface FileUploaderProps {
   disabled?: boolean;
 }
 
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
-const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+const ACCEPTED = ['image/tiff', 'image/x-tiff'];
+const MAX_SIZE = 20 * 1024 * 1024;
 
 export default function FileUploader({ onFileSelect, disabled }: FileUploaderProps) {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState('');
+  const [noisyUrl, setNoisyUrl] = useState<string | null>(null);
+  const [cleanUrl, setCleanUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const validateAndSet = (file: File) => {
+  const validateAndSet = async (file: File) => {
     setFileError('');
     if (!ACCEPTED.includes(file.type)) {
-      setFileError('Invalid file type. Please upload PNG, JPG, JPEG, or PDF.');
+      setFileError('Invalid file type. Please upload a TIFF file.');
       return;
     }
     if (file.size > MAX_SIZE) {
@@ -27,7 +30,31 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
       return;
     }
     setSelectedFile(file);
+    setNoisyUrl(null);
+    setCleanUrl(null);
     onFileSelect(file);
+
+    // Send to backend
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('http://localhost:5000/restore', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.restored && data.original) {
+        setNoisyUrl(data.original);
+        setCleanUrl(data.restored);
+      } else {
+        setFileError('Restoration failed. Check the backend.');
+      }
+    } catch (err) {
+      setFileError('Could not connect to backend. Is it running on port 5000?');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -45,6 +72,8 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
   const clearFile = () => {
     setSelectedFile(null);
     setFileError('');
+    setNoisyUrl(null);
+    setCleanUrl(null);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -58,17 +87,14 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
           onClick={() => !disabled && inputRef.current?.click()}
           className={`
             relative border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all duration-200
-            ${dragOver
-              ? 'border-primary bg-primary/10 scale-[1.01]'
-              : 'border-border hover:border-primary/50 hover:bg-primary/5'
-            }
+            ${dragOver ? 'border-primary bg-primary/10 scale-[1.01]' : 'border-border hover:border-primary/50 hover:bg-primary/5'}
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         >
           <input
             ref={inputRef}
             type="file"
-            accept=".png,.jpg,.jpeg,.pdf"
+            accept=".tif,.tiff"
             onChange={handleChange}
             className="hidden"
             disabled={disabled}
@@ -85,13 +111,9 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
                 or <span className="text-primary font-medium">browse to upload</span>
               </p>
             </div>
-            <div className="flex gap-2 flex-wrap justify-center">
-              {['PNG', 'JPG', 'JPEG', 'PDF'].map(fmt => (
-                <span key={fmt} className="px-2.5 py-1 rounded-md bg-secondary text-xs font-mono font-medium text-muted-foreground border border-border">
-                  {fmt}
-                </span>
-              ))}
-            </div>
+            <span className="px-2.5 py-1 rounded-md bg-secondary text-xs font-mono font-medium text-muted-foreground border border-border">
+              TIFF
+            </span>
             <p className="text-xs text-muted-foreground">Max file size: 20MB</p>
           </div>
         </div>
@@ -103,15 +125,10 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{selectedFile.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB · {selectedFile.type.split('/')[1].toUpperCase()}
+              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB · TIFF
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={clearFile}
-            className="flex-shrink-0 hover:text-destructive"
-          >
+          <Button variant="ghost" size="icon" onClick={clearFile} className="flex-shrink-0 hover:text-destructive">
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -121,6 +138,55 @@ export default function FileUploader({ onFileSelect, disabled }: FileUploaderPro
         <div className="mt-3 flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg p-3">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{fileError}</span>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {loading && (
+        <div className="mt-6 text-center">
+          <p className="text-primary animate-pulse text-sm font-medium">Processing with AI model...</p>
+        </div>
+      )}
+
+      {/* Before / After comparison */}
+      {noisyUrl && cleanUrl && (
+        <div className="mt-8 flex flex-col sm:flex-row gap-6 justify-center items-center">
+          {/* Original */}
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Original</p>
+            <img
+              src={noisyUrl}
+              alt="Original fingerprint"
+              className="w-56 h-56 object-contain rounded-xl border border-border bg-secondary"
+            />
+            <a
+              href={noisyUrl}
+              download="original_fingerprint.tiff"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download Original
+            </a>
+          </div>
+
+          {/* Arrow */}
+          <div className="text-2xl text-primary font-bold sm:mt-10">→</div>
+
+          {/* Restored */}
+          <div className="flex flex-col items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">Restored</p>
+            <img
+              src={cleanUrl}
+              alt="Restored fingerprint"
+              className="w-56 h-56 object-contain rounded-xl border border-primary/40 bg-secondary shadow-[0_0_20px_rgba(0,255,255,0.1)]"
+            />
+            <a
+              href={cleanUrl}
+              download="restored_fingerprint.png"
+              className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Download Restored
+            </a>
+          </div>
         </div>
       )}
     </div>

@@ -1,38 +1,12 @@
-import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import AuthModal from '@/components/AuthModal';
 import RestorePanel from '@/components/RestorePanel';
 import heroImage from '@/assets/hero-fingerprint.jpg';
-import { Fingerprint, LogOut, User, Shield, Zap, Download, ChevronRight } from 'lucide-react';
+import { Fingerprint, Shield, Zap, Download, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function Index() {
-  const { user, loading, logout } = useAuth();
-  const [showAuth, setShowAuth] = useState(false);
-  const [scrollToTool, setScrollToTool] = useState(false);
-
   const handleGetStarted = () => {
-    if (!user) {
-      setShowAuth(true);
-    } else {
-      document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' });
-    }
+    document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm font-mono">INITIALIZING...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (showAuth) {
-    return <AuthModal onClose={() => setShowAuth(false)} />;
-  }
 
   return (
     <div className="min-h-screen bg-background grid-bg">
@@ -47,25 +21,9 @@ export default function Index() {
           </div>
 
           <div className="flex items-center gap-3">
-            {user ? (
-              <>
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary border border-border">
-                  <User className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-sm text-muted-foreground truncate max-w-32">{user.email}</span>
-                </div>
-                <Button variant="ghost" size="sm" onClick={logout} className="gap-1.5 text-muted-foreground hover:text-foreground">
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sign Out</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => setShowAuth(true)}>Sign In</Button>
-                <Button size="sm" onClick={() => setShowAuth(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 glow">
-                  Get Started
-                </Button>
-              </>
-            )}
+            <Button size="sm" onClick={handleGetStarted} className="bg-primary text-primary-foreground hover:bg-primary/90 glow">
+              Get Started
+            </Button>
           </div>
         </div>
       </header>
@@ -105,25 +63,15 @@ export default function Index() {
               onClick={handleGetStarted}
               className="h-13 px-8 text-base bg-primary text-primary-foreground hover:bg-primary/90 font-semibold glow animate-pulse-glow gap-2"
             >
-              {user ? 'Open Restore Tool' : 'Start Restoring'}
+              Start Restoring
               <ChevronRight className="w-5 h-5" />
             </Button>
-            {!user && (
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' })}
-                className="h-13 px-8 text-base border-border hover:border-primary/50"
-              >
-                Try Without Account
-              </Button>
-            )}
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto mt-16">
             {[
-              { value: '4', label: 'File Formats' },
+              { value: '1', label: 'File Format (TIF)' },
               { value: '3x', label: 'Ridge Detail' },
               { value: '< 5s', label: 'Processing' },
             ].map(stat => (
@@ -180,7 +128,7 @@ export default function Index() {
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
             <span className="gradient-primary-text">Restore Your Fingerprint</span>
           </h2>
-          <p className="text-muted-foreground">Upload a PNG, JPG, JPEG, or PDF file to begin</p>
+          <p className="text-muted-foreground">Upload a TIFF file to begin</p>
         </div>
         <RestorePanel />
       </section>

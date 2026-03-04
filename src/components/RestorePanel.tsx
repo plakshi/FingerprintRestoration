@@ -1,15 +1,12 @@
 import { useState, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import FileUploader from './FileUploader';
 import RestoredOutput from './RestoredOutput';
-import { restoreFingerprint } from '@/lib/fingerprintProcessor';
 import { Button } from '@/components/ui/button';
-import { Fingerprint, Cpu, AlertCircle, FileText } from 'lucide-react';
+import { Fingerprint, Cpu, AlertCircle } from 'lucide-react';
 
 type Stage = 'idle' | 'processing' | 'done' | 'error';
 
 export default function RestorePanel() {
-  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [originalSrc, setOriginalSrc] = useState('');
   const [restoredSrc, setRestoredSrc] = useState('');
@@ -22,55 +19,50 @@ export default function RestorePanel() {
     setFile(f);
     setStage('idle');
     setRestoredSrc('');
-
-    if (f.type !== 'application/pdf') {
-      const url = URL.createObjectURL(f);
-      setOriginalSrc(url);
-    } else {
-      setOriginalSrc('');
-    }
+    setOriginalSrc('');
   };
 
   const handleRestore = async () => {
-    if (!file) return;
-    if (file.type === 'application/pdf') {
-      setErrorMsg('PDF processing: Please convert your PDF to PNG/JPG first, or upload an image directly for best results.');
-      setStage('error');
-      return;
-    }
+  if (!file) return;
 
-    cancelRef.current = false;
-    setStage('processing');
-    setProgress(0);
-    setErrorMsg('');
+  cancelRef.current = false;
+  setStage('processing');
+  setProgress(0);
+  setErrorMsg('');
 
-    // Simulate progress steps
-    const steps = [
-      { pct: 15, label: 'Loading image...' },
-      { pct: 35, label: 'Converting to grayscale...' },
-      { pct: 55, label: 'Enhancing contrast...' },
-      { pct: 75, label: 'Sharpening ridges...' },
-      { pct: 90, label: 'Applying restoration...' },
-    ];
+  // Simulate progress while waiting for backend
+  const steps = [15, 35, 55, 75, 90];
+  for (const pct of steps) {
+    if (cancelRef.current) return;
+    setProgress(pct);
+    await new Promise(r => setTimeout(r, 300));
+  }
 
-    for (const step of steps) {
-      if (cancelRef.current) return;
-      setProgress(step.pct);
-      await new Promise(r => setTimeout(r, 300));
-    }
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
 
-    try {
-      const result = await restoreFingerprint(file);
-      if (cancelRef.current) return;
-      setProgress(100);
-      await new Promise(r => setTimeout(r, 200));
-      setRestoredSrc(result);
-      setStage('done');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Processing failed');
-      setStage('error');
-    }
-  };
+    const res = await fetch('http://localhost:5000/restore', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+    const data = await res.json();
+    if (!data.restored || !data.original) throw new Error('No output from model');
+
+    if (cancelRef.current) return;
+    setProgress(100);
+    await new Promise(r => setTimeout(r, 200));
+    setOriginalSrc(data.original);
+    setRestoredSrc(data.restored);
+    setStage('done');
+  } catch (err) {
+    setErrorMsg(err instanceof Error ? err.message : 'Processing failed');
+    setStage('error');
+  }
+};
 
   const reset = () => {
     cancelRef.current = true;
@@ -93,7 +85,7 @@ export default function RestorePanel() {
             </div>
             <div>
               <h3 className="font-semibold">Upload Fingerprint</h3>
-              <p className="text-xs text-muted-foreground">Supported: PNG, JPG, JPEG, PDF</p>
+              <p className="text-xs text-muted-foreground">Supported: TIFF</p>
             </div>
           </div>
           <FileUploader onFileSelect={handleFileSelect} disabled={stage === 'processing'} />
@@ -129,14 +121,7 @@ export default function RestorePanel() {
               <p className="text-sm text-muted-foreground">{errorMsg}</p>
             </div>
           </div>
-          {file?.type === 'application/pdf' && (
-            <div className="mt-4 p-3 bg-secondary/50 rounded-lg flex items-start gap-2">
-              <FileText className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-muted-foreground">
-                PDF fingerprint support is coming soon. For now, please extract the fingerprint image and upload as PNG or JPG.
-              </p>
-            </div>
-          )}
+
           <Button variant="outline" onClick={reset} className="mt-4 w-full">Try Again</Button>
         </div>
       )}
@@ -177,14 +162,7 @@ export default function RestorePanel() {
         </div>
       )}
 
-      {/* Not Logged In Notice */}
-      {!user && (
-        <div className="text-center p-4 bg-primary/5 border border-primary/20 rounded-xl">
-          <p className="text-sm text-muted-foreground">
-            Sign in to save your restoration history and access premium features.
-          </p>
-        </div>
-      )}
+
     </div>
   );
 }
