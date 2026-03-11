@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -13,17 +13,17 @@ export default function Login() {
     try {
       await signIn(email, password);
       navigate("/");
-    } catch (err) {
+    } catch {
       alert("Login failed");
     }
   };
 
-  const handleGoogle = async () => {
+  const handleSignup = async () => {
     try {
-      await signInWithGoogle();
+      await signUp(email, password);
       navigate("/");
-    } catch (err) {
-      alert("Google login failed");
+    } catch {
+      alert("Signup failed");
     }
   };
 
@@ -32,6 +32,7 @@ export default function Login() {
       <h2>Login</h2>
 
       <input
+        type="email"
         placeholder="Email"
         onChange={(e) => setEmail(e.target.value)}
       />
@@ -50,9 +51,7 @@ export default function Login() {
 
       <br /><br />
 
-      <button onClick={handleGoogle}>
-        Sign in with Google
-      </button>
+      <button onClick={handleSignup}>Sign Up</button>
     </div>
   );
 }
