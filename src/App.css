@@ -1,7 +1,13 @@
 #root {
+  /* keep the content centered and constrain to a reasonable width */
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+
+  /* add a bit more breathing room around the entire app
+     the user requested additional padding, so bump it up
+     from 2rem to 3rem.  Components inside can still add
+     their own spacing as needed. */
+  padding: 3rem;
   text-align: center;
 }
 
