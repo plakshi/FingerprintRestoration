@@ -2,8 +2,10 @@ import RestorePanel from '@/components/RestorePanel';
 import heroImage from '@/assets/hero-fingerprint.jpg';
 import { Fingerprint, Shield, Zap, Download, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Index() {
+  const { logout } = useAuth();
   const handleGetStarted = () => {
     document.getElementById('tool')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -21,8 +23,12 @@ export default function Index() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button size="sm" variant="outline" onClick={logout}>
+              Logout
+            </Button>
+
             <Button size="sm" onClick={handleGetStarted} className="bg-primary text-primary-foreground hover:bg-primary/90 glow">
-              Get Started
+            Get Started
             </Button>
           </div>
         </div>
